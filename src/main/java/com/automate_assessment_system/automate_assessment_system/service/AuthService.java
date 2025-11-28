@@ -58,6 +58,9 @@ public class AuthService {
     
     public User activateUser(ActivationRequest request) {
         validatePassword(request.getPassword());
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Password and confirm password do not match.");
+        }
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + request.getEmail()));
