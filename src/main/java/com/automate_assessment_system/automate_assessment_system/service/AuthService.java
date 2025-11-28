@@ -1,5 +1,6 @@
 package com.automate_assessment_system.automate_assessment_system.service;
 
+import com.automate_assessment_system.automate_assessment_system.dto.EmailVerificationRequest;
 import com.automate_assessment_system.automate_assessment_system.model.ActivationRequest;
 import com.automate_assessment_system.automate_assessment_system.model.LoginRequest;
 import com.automate_assessment_system.automate_assessment_system.model.User;
@@ -17,7 +18,6 @@ public class AuthService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    // --- NEW HELPER METHOD FOR PASSWORD VALIDATION ---
     private void validatePassword(String password) {
         if (password == null || password.length() < 8) {
             throw new IllegalArgumentException("Password must be at least 8 characters long.");
@@ -35,17 +35,35 @@ public class AuthService {
             throw new IllegalArgumentException("Password must contain at least one special character.");
         }
     }
+    
+    public User loginUser(LoginRequest loginRequest) {
+        User user = userRepository.findByEmail(loginRequest.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + loginRequest.getEmail()));
+        
+        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Invalid password");
+        }
+        return user;
+    }
+    
+    public void verifyActivationStatus(EmailVerificationRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("This email is not registered for activation."));
 
+        // ✅ Use status instead of password check
+        if (!"pending_activation".equals(user.getStatus())) {
+            throw new RuntimeException("This account has already been activated. Please proceed to login.");
+        }
+    }
+    
     public User activateUser(ActivationRequest request) {
-        // --- NEW VALIDATION STEP ---
-        // First, check if the proposed password is strong enough.
         validatePassword(request.getPassword());
 
-        // The rest of the method is the same...
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + request.getEmail()));
 
-        if (user.getPassword() != null) {
+        // ✅ Check status first
+        if (!"pending_activation".equals(user.getStatus())) {
             throw new RuntimeException("Account is already activated. Please login.");
         }
 
@@ -54,16 +72,8 @@ public class AuthService {
         user.setGender(request.getGender());
         user.setDateOfBirth(request.getDateOfBirth());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setStatus("active"); // ✅ Set status to active
 
         return userRepository.save(user);
-    }
-
-    public User loginUser(LoginRequest loginRequest) {
-        User user = userRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found with email: " + loginRequest.getEmail()));
-        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid password");
-        }
-        return user;
     }
 }

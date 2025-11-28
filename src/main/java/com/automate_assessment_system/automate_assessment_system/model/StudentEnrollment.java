@@ -6,9 +6,8 @@ import jakarta.persistence.*;
 @Table(name = "student_enrollment")
 public class StudentEnrollment {
 
-    @Id
+	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    // Corrected the column name to match your blueprint
     @Column(name = "student_enrollment_id")
     private Integer studentEnrollmentId;
 
@@ -16,13 +15,10 @@ public class StudentEnrollment {
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 
-    // --- THIS IS THE CORRECTED RELATIONSHIP ---
-    // It links to a Section, not a Class.
     @ManyToOne
     @JoinColumn(name = "section_id", nullable = false)
     private Section section;
     
-    // Your blueprint also has a school_year field
     @Column(name = "school_year")
     private String schoolYear;
 

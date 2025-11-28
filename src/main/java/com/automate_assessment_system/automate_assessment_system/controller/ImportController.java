@@ -1,7 +1,7 @@
 package com.automate_assessment_system.automate_assessment_system.controller;
 
+import com.automate_assessment_system.automate_assessment_system.dto.UploadPreviewResponse;
 import com.automate_assessment_system.automate_assessment_system.service.ImportService;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -9,43 +9,56 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/import")
+@RequestMapping("/api/admin")
 public class ImportController {
 
     @Autowired
     private ImportService importService;
 
-    @PostMapping("/analyze")
-    @PreAuthorize("hasAuthority('principal')")
-    public ResponseEntity<List<String>> analyzeFile(@RequestParam("file") MultipartFile file) {
-        // ... (This method stays the same)
-        List<String> headers = importService.analyzeFile(file);
-        return ResponseEntity.ok(headers);
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    /**
+     * Step 1: Upload file and get preview
+     */
+    @PostMapping(value = "/enrollment/upload", consumes = "multipart/form-data")
+    @PreAuthorize("hasRole('principal')")  // ✅ Changed from hasAuthority to hasRole
+    public ResponseEntity<UploadPreviewResponse> uploadEnrollmentFile(
+            @RequestParam("file") MultipartFile file) {
+        
+        try {
+            UploadPreviewResponse preview = importService.previewFile(file);
+            return ResponseEntity.ok(preview);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(null);
+        }
     }
 
-    // --- THIS IS THE IMPROVED ENDPOINT ---
-    @PostMapping("/process")
-    @PreAuthorize("hasAuthority('principal')")
-    public ResponseEntity<String> processFile(
+    /**
+     * Step 2: Commit the import
+     */
+    @PostMapping(value = "/enrollment/commit", consumes = "multipart/form-data")
+    @PreAuthorize("hasRole('principal')")  // ✅ Changed from hasAuthority to hasRole
+    public ResponseEntity<Map<String, Object>> commitEnrollment(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("mapping") String mappingJson) { // We now receive mapping as a String
-
+            @RequestParam("mapping") String mappingJson) {
+        
         try {
-            // We use a library (already included in Spring) to convert the string back to a Map
-            ObjectMapper objectMapper = new ObjectMapper();
-            Map<String, String> columnMapping = objectMapper.readValue(mappingJson, new TypeReference<Map<String, String>>() {});
+            Map<String, String> columnMapping = objectMapper.readValue(mappingJson, 
+                new com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {});
             
-            importService.processFile(file, columnMapping);
+            Map<String, Object> result = importService.commitImport(file, columnMapping);
+            return ResponseEntity.ok(result);
             
-            return ResponseEntity.ok("File processed and teachers imported successfully.");
-
         } catch (Exception e) {
-            // If the JSON string is badly formatted, we send back an error
-            return ResponseEntity.badRequest().body("Invalid mapping format: " + e.getMessage());
+            Map<String, Object> error = Map.of(
+                "success", false,
+                "message", "Import failed: " + e.getMessage()
+            );
+            return ResponseEntity.badRequest().body(error);
         }
     }
 }

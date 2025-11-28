@@ -7,6 +7,6 @@ import java.util.Optional;
 
 @Repository
 public interface StudentRepository extends JpaRepository<Student, Integer> {
-    // This custom method could be useful later to check for duplicate students
+    // If using 'student' table, this is correct
     Optional<Student> findByFirstNameAndLastName(String firstName, String lastName);
 }
